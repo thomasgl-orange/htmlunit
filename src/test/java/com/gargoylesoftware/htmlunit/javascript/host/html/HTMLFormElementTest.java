@@ -2368,6 +2368,7 @@ public class HTMLFormElementTest extends WebDriverTestCase {
         assertTitle(driver, getExpectedAlerts()[0]);
         final String params = getMockWebConnection().getLastWebRequest().getUrl().getQuery();
         assertEquals(getExpectedAlerts()[1], params);
+        assertEquals(2, getMockWebConnection().getRequestCount()); // one for loadPage2, one for the form target URL
     }
 
     /**
