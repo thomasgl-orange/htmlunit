@@ -335,4 +335,226 @@ public class HTMLFormElement2Test extends SimpleWebTestCase {
         fileInput.setAttribute("value", "dummy.txt");
         assertEquals(getExpectedAlerts(), collectedAlerts);
     }
+
+    /**
+     * @throws Exception if the test fails
+     */
+    @Test
+    @Alerts(DEFAULT = {},
+            IE = "requestSubmit() not available")
+    public void requestSubmitWithoutChangingForm() throws Exception {
+
+        final String html
+            = "<html>\n"
+            + "<head><title>first</title>\n"
+            + "<script>\n"
+            + "function doTest(button) {\n"
+            + "  if (button.form.requestSubmit) {\n"
+            + "    try {\n"
+            + "      button.form.requestSubmit(button);\n"
+            + "      return;" // continue after onclick
+            + "    } catch (e) {\n"
+            + "      alert('requestSubmit failed' + e);\n"
+            + "      return false;\n"
+            + "    }\n"
+            + "  }\n"
+            + "  alert('requestSubmit() not available');\n"
+            + "  return false;"
+            + "}\n"
+            + "</script>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "  <form id='form1' name='form1' \n"
+            + "      method='get' action='" + URL_SECOND + "' encoding='text/plain'>\n"
+            + "    <input name='param1' type='hidden' value='value1' />\n"
+            + "    <button type='submit' id='submit1' name='submit1'\n"
+            + "        onclick='return doTest(this);'>submit1</button>\n"
+            + "  </form>\n"
+            + "</body></html>";
+
+        final String secondContent
+            = "<html><head><title>second</title></head><body>\n"
+            + "<p>hello world</p>\n"
+            + "</body></html>";
+        getMockWebConnection().setResponse(URL_SECOND, secondContent);
+
+        final List<String> collectedAlerts = new ArrayList<>();
+        final HtmlPage firstPage = loadPage(html, collectedAlerts);
+
+        firstPage.getHtmlElementById("submit1").click();
+        getWebClient().waitForBackgroundJavaScript(1000);
+
+        if (getExpectedAlerts().length == 1) {
+            assertEquals(1, collectedAlerts.size());
+            assertEquals(getExpectedAlerts()[0], collectedAlerts.get(0));
+            assertEquals(1, getMockWebConnection().getRequestCount()); // 1 = loadPage() only
+            return;
+        }
+
+        final HtmlPage secondPage = (HtmlPage) getWebClient().getCurrentWindow().getEnclosedPage();
+        assertEquals("second", secondPage.getTitleText());
+
+        assertEquals(0, collectedAlerts.size());
+        assertEquals(2, getMockWebConnection().getRequestCount()); // loadPage() + submit request
+        final String params = getMockWebConnection().getLastWebRequest().getUrl().getQuery();
+        assertEquals("param1=value1&submit1=", params);
+
+    }
+
+    /**
+     * @throws Exception if the test fails
+     */
+    @Test
+    @Alerts(DEFAULT = {},
+            IE = "requestSubmit() not available")
+    public void requestSubmitWithChangingForm() throws Exception {
+
+        final String html
+            = "<html>\n"
+            + "<head><title>first</title>\n"
+            + "<script>\n"
+            + "function incSubmitCounter(form) {\n"
+            + "    var countElement = null;\n"
+            + "    for(var i=0 ; i < form.elements.length ; i++) {\n"
+            + "        var e = form.elements[i];\n"
+            + "        if (e.name == 'submitCounter') {\n"
+            + "            e.value = 1 + parseInt(e.value);\n"
+            + "        }\n"
+            + "    }\n"
+            + "    return true;\n"
+            + "}\n" 
+            + "\n"
+            + "function doTest(button) {\n"
+            + "  if (button.form.requestSubmit) {\n"
+            + "    try {\n"
+            + "      button.form.requestSubmit(button);\n"
+            + "      return false;" // stop after onclick
+            + "    } catch (e) {\n"
+            + "      alert('requestSubmit failed' + e);\n"
+            + "      return false;\n"
+            + "    }\n"
+            + "  }\n"
+            + "  alert('requestSubmit() not available');\n"
+            + "  return false;"
+            + "}\n"
+            + "</script>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "  <form id='form1' name='form1' onsubmit='return incSubmitCounter(this);' \n"
+            + "      method='get' action='" + URL_SECOND + "' encoding='text/plain'>\n"
+            + "    <input name='param1' type='hidden' value='value1' />\n"
+            + "    <button type='submit' id='submit1' name='submit1'\n"
+            + "        onclick='return doTest(this);'>submit1</button>\n"
+            + "    <input name='submitCounter' type='hidden' value='0' />\n"
+            + "  </form>\n"
+            + "</body></html>";
+
+        final String secondContent
+            = "<html><head><title>second</title></head><body>\n"
+            + "<p>hello world</p>\n"
+            + "</body></html>";
+        getMockWebConnection().setResponse(URL_SECOND, secondContent);
+
+        final List<String> collectedAlerts = new ArrayList<>();
+        final HtmlPage firstPage = loadPage(html, collectedAlerts);
+
+        firstPage.getHtmlElementById("submit1").click();
+        getWebClient().waitForBackgroundJavaScript(1000);
+
+        if (getExpectedAlerts().length == 1) {
+            assertEquals(1, collectedAlerts.size());
+            assertEquals(getExpectedAlerts()[0], collectedAlerts.get(0));
+            assertEquals(1, getMockWebConnection().getRequestCount()); // 1 = loadPage() only
+            return;
+        }
+
+        final HtmlPage secondPage = (HtmlPage) getWebClient().getCurrentWindow().getEnclosedPage();
+        assertEquals("second", secondPage.getTitleText());
+
+        assertEquals(0, collectedAlerts.size());
+        assertEquals(2, getMockWebConnection().getRequestCount()); // loadPage() + submit request
+        final String params = getMockWebConnection().getLastWebRequest().getUrl().getQuery();
+        assertEquals("param1=value1&submit1=&submitCounter=1", params);
+
+    }
+
+    /**
+     * @throws Exception if the test fails
+     */
+    @Test
+    @Alerts(DEFAULT = {},
+            IE = "requestSubmit() not available")
+    public void requestSubmitWithChangingForm_doubleSubmit() throws Exception {
+
+        final String html
+            = "<html>\n"
+            + "<head><title>first</title>\n"
+            + "<script>\n"
+            + "function incSubmitCounter(form) {\n"
+            + "    var countElement = null;\n"
+            + "    for(var i=0 ; i < form.elements.length ; i++) {\n"
+            + "        var e = form.elements[i];\n"
+            + "        if (e.name == 'submitCounter') {\n"
+            + "            e.value = 1 + parseInt(e.value);\n"
+            + "        }\n"
+            + "    }\n"
+            + "    return true;\n"
+            + "}\n" 
+            + "\n"
+            + "function doTest(button) {\n"
+            + "  if (button.form.requestSubmit) {\n"
+            + "    try {\n"
+            + "      button.form.requestSubmit(button);\n"
+            + "      return;" // continue after onclick
+            + "    } catch (e) {\n"
+            + "      alert('requestSubmit failed' + e);\n"
+            + "      return false;\n"
+            + "    }\n"
+            + "  }\n"
+            + "  alert('requestSubmit() not available');\n"
+            + "  return false;"
+            + "}\n"
+            + "</script>\n"
+            + "</head>\n"
+            + "<body>\n"
+            + "  <form id='form1' name='form1' onsubmit='return incSubmitCounter(this);' \n"
+            + "      method='get' action='" + URL_SECOND + "' encoding='text/plain'>\n"
+            + "    <input name='param1' type='hidden' value='value1' />\n"
+            + "    <button type='submit' id='submit1' name='submit1'\n"
+            + "        onclick='return doTest(this);'>submit1</button>\n"
+            + "    <input name='submitCounter' type='hidden' value='0' />\n"
+            + "  </form>\n"
+            + "</body></html>";
+
+        final String secondContent
+            = "<html><head><title>second</title></head><body>\n"
+            + "<p>hello world</p>\n"
+            + "</body></html>";
+        getMockWebConnection().setResponse(URL_SECOND, secondContent);
+
+        final List<String> collectedAlerts = new ArrayList<>();
+        final HtmlPage firstPage = loadPage(html, collectedAlerts);
+
+        firstPage.getHtmlElementById("submit1").click();
+        getWebClient().waitForBackgroundJavaScript(1000);
+
+        if (getExpectedAlerts().length == 1) {
+            assertEquals(1, collectedAlerts.size());
+            assertEquals(getExpectedAlerts()[0], collectedAlerts.get(0));
+            assertEquals(1, getMockWebConnection().getRequestCount()); // 1 = loadPage() only
+            return;
+        }
+
+        final HtmlPage secondPage = (HtmlPage) getWebClient().getCurrentWindow().getEnclosedPage();
+        assertEquals("second", secondPage.getTitleText());
+
+        assertEquals(0, collectedAlerts.size());
+        assertEquals(3, getMockWebConnection().getRequestCount()); // loadPage() + submit request TWICE
+        // One only gets this double-submit behavior if the form changes when submitting.
+        // Otherwise, HtmlUnit swallows the second request with identical URL/query/body - see WebClient.download().
+        // Hence the "submitCounter".
+        final String params = getMockWebConnection().getLastWebRequest().getUrl().getQuery();
+        assertEquals("param1=value1&submit1=&submitCounter=2", params);
+
+    }
 }
